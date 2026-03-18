@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>M/M/1 Queue Simulation — IME 461/561</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+:root {
+  --bg:        #0a0e13;
+  --panel:     #0f1620;
+  --border:    #1e2d3d;
+  --accent:    #f0a500;
+  --accent2:   #00c8ff;
+  --danger:    #e05252;
+  --success:   #3ecf74;
+  --text:      #d4dde8;
+  --muted:     #5a7080;
+  --grid-line: rgba(255,255,255,0.03);
+  --mono: 'Space Mono', monospace;
+  --sans: 'DM Sans', sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.6;
+  min-height: 100vh;
+  background-image:
+    linear-gradient(var(--grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+/* ── HEADER ───────────────────────────────────────────────── */
+header {
+  border-bottom: 1px solid var(--border);
+  padding: 0 2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 60px;
+  background: rgba(10,14,19,0.9);
+  backdrop-filter: blur(8px);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.logo {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--accent);
+  letter-spacing: 0.04em;
+}
+.logo span { color: var(--muted); }
+nav { display: flex; gap: 2rem; }
+nav a {
+  font-size: 13px;
+  color: var(--muted);
+  text-decoration: none;
+  font-family: var(--mono);
+  transition: color .2s;
+}
+nav a:hover { color: var(--accent); }
+
+/* ── HERO ─────────────────────────────────────────────────── */
+.hero {
+  padding: 4rem 2.5rem 3rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+.hero-tag {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--accent);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.hero-tag::before {
+  content: '';
+  display: inline-block;
+  width: 20px;
+  height: 1px;
+  background: var(--accent);
+}
+.hero h1 {
+  font-family: var(--mono);
+  font-size: clamp(1.8rem, 4vw, 3rem);
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  margin-bottom: 1rem;
+}
+.hero h1 em { color: var(--accent); font-style: normal; }
+.hero-sub {
+  max-width: 600px;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.7;
+  margin-bottom: 2rem;
+}
+.hero-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  font-family: var(--mono);
+  font-size: 12px;
+}
+.meta-item { display: flex; flex-direction: column; gap: 2px; }
+.meta-label { color: var(--muted); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; }
+.meta-value { color: var(--accent2); }
+
+/* ── LAYOUT ───────────────────────────────────────────────── */
+main {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 2.5rem 4rem;
+}
+.section-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 1.2rem;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.section-label::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+/* ── STAT CARDS ───────────────────────────────────────────── */
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  margin-bottom: 2.5rem;
+}
+.stat-card {
+  background: var(--panel);
+  padding: 1.4rem 1.2rem;
+  position: relative;
+  overflow: hidden;
+}
+.stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: var(--accent);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform .4s ease;
+}
+.stat-card:hover::before { transform: scaleX(1); }
+.stat-card .label {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 0.5rem;
+}
+.stat-card .value {
+  font-family: var(--mono);
+  font-size: 1.7rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--text);
+  margin-bottom: 0.3rem;
+}
+.stat-card .value.accent { color: var(--accent); }
+.stat-card .value.cyan   { color: var(--accent2); }
+.stat-card .sub {
+  font-size: 11px;
+  color: var(--muted);
+  font-family: var(--mono);
+}
+.delta { display: inline-block; font-size: 11px; font-family: var(--mono); padding: 1px 5px; border-radius: 2px; }
+.delta.good { background: rgba(62,207,116,0.12); color: var(--success); }
+.delta.bad  { background: rgba(224,82,82,0.12);  color: var(--danger); }
+
+/* ── TWO COLUMN ───────────────────────────────────────────── */
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2.5rem; }
+@media (max-width: 768px) { .two-col { grid-template-columns: 1fr; } }
+
+/* ── PANEL ────────────────────────────────────────────────── */
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  padding: 1.5rem;
+}
+.panel-title {
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 1.2rem;
+  padding-bottom: 0.8rem;
+  border-bottom: 1px solid var(--border);
+}
+.chart-wrap { position: relative; height: 240px; }
+
+/* ── COMPARISON TABLE ─────────────────────────────────────── */
+.comp-table-wrap { margin-bottom: 2.5rem; overflow-x: auto; }
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--mono);
+  font-size: 12px;
+}
+thead th {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  padding: 10px 14px;
+  text-align: left;
+  color: var(--muted);
+  letter-spacing: 0.06em;
+  font-size: 10px;
+  text-transform: uppercase;
+  font-weight: 400;
+}
+thead th.theory { color: var(--accent); }
+tbody tr { border-bottom: 1px solid var(--border); transition: background .15s; }
+tbody tr:hover { background: rgba(255,255,255,0.02); }
+tbody td {
+  padding: 10px 14px;
+  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  color: var(--text);
+}
+tbody td:first-child { color: var(--muted); }
+.theory-val { color: var(--accent); font-weight: 700; }
+.err-bad  { color: var(--danger); }
+.err-good { color: var(--success); }
+.err-ok   { color: #f0a500; }
+
+/* ── SYSTEM DIAGRAM ───────────────────────────────────────── */
+.diagram { margin-bottom: 2.5rem; }
+.diagram-inner {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  padding: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  overflow-x: auto;
+}
+.dnode {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  padding: 1rem 1.4rem;
+  text-align: center;
+  min-width: 130px;
+  position: relative;
+}
+.dnode .dtype { font-family: var(--mono); font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+.dnode .dname { font-family: var(--mono); font-size: 13px; color: var(--accent2); font-weight: 700; }
+.dnode .ddetail { font-size: 11px; color: var(--muted); margin-top: 4px; }
+.dnode.highlight { border-color: var(--accent); }
+.dnode.highlight .dname { color: var(--accent); }
+.darrow {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0 6px;
+  gap: 2px;
+  min-width: 64px;
+}
+.darrow-line {
+  width: 100%;
+  height: 1px;
+  background: var(--border);
+  position: relative;
+}
+.darrow-line::after {
+  content: '▶';
+  position: absolute;
+  right: -4px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted);
+  font-size: 8px;
+}
+.darrow-label { font-family: var(--mono); font-size: 9px; color: var(--muted); letter-spacing: 0.05em; }
+.queue-viz {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin: 0 8px;
+}
+.queue-slot {
+  width: 22px; height: 36px;
+  border: 1px solid var(--border);
+  border-right: none;
+  display: flex; align-items: center; justify-content: center;
+}
+.queue-slot:last-child { border-right: 1px solid var(--border); }
+.queue-slot.filled { background: rgba(240,165,0,0.12); border-color: var(--accent); }
+.queue-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+
+/* ── PARAMS ───────────────────────────────────────────────── */
+.params-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  margin-bottom: 2.5rem;
+}
+.param-row {
+  background: var(--panel);
+  padding: 0.9rem 1.2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.param-key { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+.param-val { font-family: var(--mono); font-size: 12px; color: var(--accent2); font-weight: 700; }
+
+/* ── CONVERGENCE BAR ──────────────────────────────────────── */
+.conv-row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+.conv-label { font-family: var(--mono); font-size: 11px; color: var(--muted); width: 80px; flex-shrink: 0; }
+.conv-bar-bg { flex: 1; height: 8px; background: rgba(255,255,255,0.05); border-radius: 0; overflow: visible; position: relative; }
+.conv-bar {
+  height: 100%;
+  border-radius: 0;
+  transition: width 1.2s cubic-bezier(0.16,1,0.3,1);
+  position: relative;
+}
+.conv-bar::after {
+  content: attr(data-val);
+  position: absolute;
+  right: -38px;
+  top: -3px;
+  font-family: var(--mono);
+  font-size: 10px;
+  white-space: nowrap;
+}
+.conv-bar.bad   { background: var(--danger);  }
+.conv-bar.bad::after   { color: var(--danger); }
+.conv-bar.ok    { background: var(--accent);  }
+.conv-bar.ok::after    { color: var(--accent); }
+.conv-bar.good  { background: var(--success); }
+.conv-bar.good::after  { color: var(--success); }
+
+/* ── FILES ────────────────────────────────────────────────── */
+.file-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1rem;
+  margin-bottom: 2.5rem;
+}
+.file-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  padding: 1.2rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  text-decoration: none;
+  color: inherit;
+  transition: border-color .2s;
+}
+.file-card:hover { border-color: var(--accent); }
+.file-icon {
+  font-family: var(--mono);
+  font-size: 10px;
+  background: rgba(240,165,0,0.1);
+  color: var(--accent);
+  border: 1px solid rgba(240,165,0,0.3);
+  padding: 6px 8px;
+  letter-spacing: 0.05em;
+  flex-shrink: 0;
+}
+.file-info .file-name { font-family: var(--mono); font-size: 12px; color: var(--text); margin-bottom: 3px; }
+.file-info .file-desc { font-size: 12px; color: var(--muted); line-height: 1.5; }
+
+/* ── FOOTER ───────────────────────────────────────────────── */
+footer {
+  border-top: 1px solid var(--border);
+  padding: 2rem 2.5rem;
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+footer p { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+footer a { color: var(--accent2); text-decoration: none; }
+
+/* ── ANIMATIONS ───────────────────────────────────────────── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.hero, .stat-grid, .two-col, .comp-table-wrap, .diagram, .file-grid {
+  animation: fadeUp 0.6s ease both;
+}
+.stat-card:nth-child(1) { animation-delay: .05s; }
+.stat-card:nth-child(2) { animation-delay: .10s; }
+.stat-card:nth-child(3) { animation-delay: .15s; }
+.stat-card:nth-child(4) { animation-delay: .20s; }
+.stat-card:nth-child(5) { animation-delay: .25s; }
+.stat-card:nth-child(6) { animation-delay: .30s; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">IME461/561 <span>// DES Lab</span></div>
+  <nav>
+    <a href="#model">Model</a>
+    <a href="#results">Results</a>
+    <a href="#convergence">Convergence</a>
+    <a href="#files">Files</a>
+  </nav>
+</header>
+
+<div class="hero">
+  <div class="hero-tag">Discrete Event Simulation — Bradley University</div>
+  <h1>M/M/1 Single-Server<br/><em>Queue Simulation</em></h1>
+  <p class="hero-sub">
+    A Simio-based verification study comparing discrete-event simulation outputs to M/M/1 queuing theory across three run lengths: 1 day, 31 days, and 90 days. System context: a small pizza take-out store operating 24/7.
+  </p>
+  <div class="hero-meta">
+    <div class="meta-item"><span class="meta-label">Tool</span><span class="meta-value">Simio</span></div>
+    <div class="meta-item"><span class="meta-label">Model</span><span class="meta-value">M/M/1</span></div>
+    <div class="meta-item"><span class="meta-label">Arrival Rate λ</span><span class="meta-value">2 / min</span></div>
+    <div class="meta-item"><span class="meta-label">Service Rate μ</span><span class="meta-value">2.5 / min</span></div>
+    <div class="meta-item"><span class="meta-label">Utilization ρ</span><span class="meta-value">80.0%</span></div>
+    <div class="meta-item"><span class="meta-label">Queue Discipline</span><span class="meta-value">FIFO</span></div>
+    <div class="meta-item"><span class="meta-label">Course</span><span class="meta-value">IME 461 / 561</span></div>
+  </div>
+</div>
+
+<main>
+
+  <!-- KPI cards -->
+  <div class="section-label" id="model">Theoretical steady-state benchmarks (M/M/1)</div>
+  <div class="stat-grid">
+    <div class="stat-card">
+      <div class="label">Traffic intensity ρ</div>
+      <div class="value accent">80%</div>
+      <div class="sub">λ/μ = 2.0 / 2.5</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">P₀ — system idle</div>
+      <div class="value">20%</div>
+      <div class="sub">1 − ρ</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">L — avg in system</div>
+      <div class="value cyan">4.000</div>
+      <div class="sub">customers</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Lq — avg in queue</div>
+      <div class="value cyan">3.200</div>
+      <div class="sub">customers</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">W — avg system time</div>
+      <div class="value">2.000</div>
+      <div class="sub">minutes</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Wq — avg queue time</div>
+      <div class="value">1.600</div>
+      <div class="sub">minutes</div>
+    </div>
+  </div>
+
+  <!-- System diagram -->
+  <div class="section-label">Simio model topology</div>
+  <div class="diagram">
+    <div class="diagram-inner">
+      <div class="dnode">
+        <div class="dtype">Source</div>
+        <div class="dname">Entrance</div>
+        <div class="ddetail">Exp(0.5 min)<br/>λ = 2 / min</div>
+      </div>
+      <div class="darrow">
+        <div class="darrow-line"></div>
+        <div class="darrow-label">arrivals</div>
+      </div>
+      <div class="queue-viz">
+        <div class="queue-slot filled"><div class="queue-dot"></div></div>
+        <div class="queue-slot filled"><div class="queue-dot"></div></div>
+        <div class="queue-slot filled"><div class="queue-dot"></div></div>
+        <div class="queue-slot"></div>
+        <div class="queue-slot"></div>
+      </div>
+      <div class="darrow">
+        <div class="darrow-line"></div>
+        <div class="darrow-label">FIFO queue</div>
+      </div>
+      <div class="dnode highlight">
+        <div class="dtype">Server</div>
+        <div class="dname">PizzaStore</div>
+        <div class="ddetail">Exp(0.4 min)<br/>μ = 2.5 / min</div>
+      </div>
+      <div class="darrow">
+        <div class="darrow-line"></div>
+        <div class="darrow-label">served</div>
+      </div>
+      <div class="dnode">
+        <div class="dtype">Sink</div>
+        <div class="dname">Exit</div>
+        <div class="ddetail">Flow-time<br/>statistics</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Charts -->
+  <div class="section-label" id="results">Simulation vs theory — key metrics</div>
+  <div class="two-col">
+    <div class="panel">
+      <div class="panel-title">Queue &amp; system content (avg customers)</div>
+      <div class="chart-wrap"><canvas id="chart-content"></canvas></div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Time metrics (minutes)</div>
+      <div class="chart-wrap"><canvas id="chart-time"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Comparison table -->
+  <div class="section-label">Full results comparison</div>
+  <div class="comp-table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Performance Metric</th>
+          <th class="theory">M/M/1 Theory</th>
+          <th>1 Day<br/>(n = 2,861)</th>
+          <th>31 Days<br/>(n = 89,643)</th>
+          <th>90 Days<br/>(n = 259,709)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>Utilisation U (%)</td><td class="theory-val">80.00%</td><td>79.87% <span class="delta good">−0.2%</span></td><td>80.11% <span class="delta good">+0.1%</span></td><td>79.99% <span class="delta good">&lt;0.1%</span></td></tr>
+        <tr><td>L — avg in system</td><td class="theory-val">4.000</td><td>3.596 <span class="delta bad">−10.1%</span></td><td>4.038 <span class="delta good">+0.9%</span></td><td>3.940 <span class="delta ok">−1.5%</span></td></tr>
+        <tr><td>Lq — avg queue length</td><td class="theory-val">3.200</td><td>2.797 <span class="delta bad">−12.6%</span></td><td>3.237 <span class="delta good">+1.2%</span></td><td>3.141 <span class="delta ok">−1.8%</span></td></tr>
+        <tr><td>W — avg time in system (min)</td><td class="theory-val">2.000</td><td>1.810 <span class="delta bad">−9.5%</span></td><td>2.011 <span class="delta good">+0.5%</span></td><td>1.966 <span class="delta ok">−1.7%</span></td></tr>
+        <tr><td>Wq — avg queue time (min)</td><td class="theory-val">1.600</td><td>1.407 <span class="delta bad">−12.1%</span></td><td>1.612 <span class="delta good">+0.7%</span></td><td>1.567 <span class="delta ok">−2.1%</span></td></tr>
+        <tr><td>P(0) — idle probability</td><td class="theory-val">0.200</td><td>0.201 <span class="delta good">+0.5%</span></td><td>0.199 <span class="delta good">−0.5%</span></td><td>0.200 <span class="delta good">&lt;0.1%</span></td></tr>
+        <tr><td>Max no. in system</td><td class="theory-val">—</td><td>23</td><td>34</td><td>36</td></tr>
+        <tr><td>Max time in system (min)</td><td class="theory-val">—</td><td>9.90</td><td>15.00</td><td>14.99</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Convergence -->
+  <div class="section-label" id="convergence">Convergence of error — simulation vs theory</div>
+  <div class="two-col">
+    <div class="panel">
+      <div class="panel-title">1 day — error vs theory</div>
+      <div class="conv-row"><div class="conv-label">U</div><div class="conv-bar-bg"><div class="conv-bar ok" data-val="−0.2%" style="width:1%"></div></div></div>
+      <div class="conv-row"><div class="conv-label">L</div><div class="conv-bar-bg"><div class="conv-bar bad" data-val="−10.1%" style="width:80%"></div></div></div>
+      <div class="conv-row"><div class="conv-label">Lq</div><div class="conv-bar-bg"><div class="conv-bar bad" data-val="−12.6%" style="width:100%"></div></div></div>
+      <div class="conv-row"><div class="conv-label">W</div><div class="conv-bar-bg"><div class="conv-bar bad" data-val="−9.5%" style="width:75%"></div></div></div>
+      <div class="conv-row"><div class="conv-label">Wq</div><div class="conv-bar-bg"><div class="conv-bar bad" data-val="−12.1%" style="width:96%"></div></div></div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">31 days — error vs theory</div>
+      <div class="conv-row"><div class="conv-label">U</div><div class="conv-bar-bg"><div class="conv-bar good" data-val="+0.1%" style="width:1%"></div></div></div>
+      <div class="conv-row"><div class="conv-label">L</div><div class="conv-bar-bg"><div class="conv-bar good" data-val="+0.9%" style="width:7%"></div></div></div>
+      <div class="conv-row"><div class="conv-label">Lq</div><div class="conv-bar-bg"><div class="conv-bar good" data-val="+1.2%" style="width:9%"></div></div></div>
+      <div class="conv-row"><div class="conv-label">W</div><div class="conv-bar-bg"><div class="conv-bar good" data-val="+0.5%" style="width:4%"></div></div></div>
+      <div class="conv-row"><div class="conv-label">Wq</div><div class="conv-bar-bg"><div class="conv-bar good" data-val="+0.7%" style="width:6%"></div></div></div>
+    </div>
+  </div>
+
+  <!-- Model parameters -->
+  <div class="section-label">Model parameters &amp; assumptions</div>
+  <div class="params-grid">
+    <div class="param-row"><span class="param-key">Queue notation</span><span class="param-val">M/M/1/∞/∞</span></div>
+    <div class="param-row"><span class="param-key">Arrival process</span><span class="param-val">Poisson (λ = 2/min)</span></div>
+    <div class="param-row"><span class="param-key">Service process</span><span class="param-val">Exponential (μ = 2.5/min)</span></div>
+    <div class="param-row"><span class="param-key">Inter-arrival time</span><span class="param-val">Exp(mean = 0.5 min)</span></div>
+    <div class="param-row"><span class="param-key">Service time</span><span class="param-val">Exp(mean = 0.40 min)</span></div>
+    <div class="param-row"><span class="param-key">Number of servers</span><span class="param-val">s = 1</span></div>
+    <div class="param-row"><span class="param-key">Queue discipline</span><span class="param-val">FIFO</span></div>
+    <div class="param-row"><span class="param-key">Queue capacity</span><span class="param-val">Infinite</span></div>
+    <div class="param-row"><span class="param-key">Population size</span><span class="param-val">Infinite</span></div>
+    <div class="param-row"><span class="param-key">Operating hours</span><span class="param-val">24 / 7 continuous</span></div>
+    <div class="param-row"><span class="param-key">Warm-up period</span><span class="param-val">None (empty start)</span></div>
+    <div class="param-row"><span class="param-key">Simulation tool</span><span class="param-val">Simio</span></div>
+  </div>
+
+  <!-- Files -->
+  <div class="section-label" id="files">Project files</div>
+  <div class="file-grid">
+    <a class="file-card" href="report/Single_Server_Queue_Verification_Report.docx">
+      <div class="file-icon">DOCX</div>
+      <div class="file-info">
+        <div class="file-name">Verification_Report.docx</div>
+        <div class="file-desc">Full technical report — system description, M/M/1 theory, Simio model, results, verification summary</div>
+      </div>
+    </a>
+    <a class="file-card" href="data/results_1day.csv">
+      <div class="file-icon">CSV</div>
+      <div class="file-info">
+        <div class="file-name">results_1day.csv</div>
+        <div class="file-desc">Simio output — 1 day run (24 h), 2,861 customers processed</div>
+      </div>
+    </a>
+    <a class="file-card" href="data/results_31days.xlsx">
+      <div class="file-icon">XLSX</div>
+      <div class="file-info">
+        <div class="file-name">results_31days.xlsx</div>
+        <div class="file-desc">Simio output — 31 day run (744 h), 89,643 customers processed</div>
+      </div>
+    </a>
+    <a class="file-card" href="data/results_90days.csv">
+      <div class="file-icon">CSV</div>
+      <div class="file-info">
+        <div class="file-name">results_90days.csv</div>
+        <div class="file-desc">Simio output — 90 day run (2,160 h), 259,709 customers processed</div>
+      </div>
+    </a>
+  </div>
+
+</main>
+
+<footer>
+  <p>IME 461/561 — Discrete Event Simulation &nbsp;·&nbsp; Bradley University &nbsp;·&nbsp; Spring 2026</p>
+  <p>Simulation tool: <a href="https://www.simio.com" target="_blank">Simio</a></p>
+</footer>
+
+<script>
+// Chart 1 — Content metrics
+new Chart(document.getElementById('chart-content'), {
+  type: 'bar',
+  data: {
+    labels: ['L (avg in system)', 'Lq (avg in queue)'],
+    datasets: [
+      { label: 'M/M/1 Theory', data: [4.000, 3.200], backgroundColor: '#f0a500', borderRadius: 2, barPercentage: 0.65 },
+      { label: '1 Day',        data: [3.596, 2.797], backgroundColor: '#e05252', borderRadius: 2, barPercentage: 0.65 },
+      { label: '31 Days',      data: [4.038, 3.237], backgroundColor: '#3ecf74', borderRadius: 2, barPercentage: 0.65 },
+      { label: '90 Days',      data: [3.940, 3.141], backgroundColor: '#00c8ff', borderRadius: 2, barPercentage: 0.65 },
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { labels: { color: '#5a7080', font: { family: 'Space Mono', size: 10 }, boxWidth: 10, padding: 12 } } },
+    scales: {
+      x: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#5a7080', font: { family: 'Space Mono', size: 10 } } },
+      y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#5a7080', font: { family: 'Space Mono', size: 10 } }, beginAtZero: true }
+    }
+  }
+});
+
+// Chart 2 — Time metrics
+new Chart(document.getElementById('chart-time'), {
+  type: 'bar',
+  data: {
+    labels: ['W (time in system)', 'Wq (time in queue)'],
+    datasets: [
+      { label: 'M/M/1 Theory', data: [2.000, 1.600], backgroundColor: '#f0a500', borderRadius: 2, barPercentage: 0.65 },
+      { label: '1 Day',        data: [1.810, 1.407], backgroundColor: '#e05252', borderRadius: 2, barPercentage: 0.65 },
+      { label: '31 Days',      data: [2.011, 1.612], backgroundColor: '#3ecf74', borderRadius: 2, barPercentage: 0.65 },
+      { label: '90 Days',      data: [1.966, 1.567], backgroundColor: '#00c8ff', borderRadius: 2, barPercentage: 0.65 },
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { labels: { color: '#5a7080', font: { family: 'Space Mono', size: 10 }, boxWidth: 10, padding: 12 } } },
+    scales: {
+      x: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#5a7080', font: { family: 'Space Mono', size: 10 } } },
+      y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#5a7080', font: { family: 'Space Mono', size: 10 } }, beginAtZero: true }
+    }
+  }
+});
+</script>
+</body>
+</html>
